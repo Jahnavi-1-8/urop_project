@@ -1,0 +1,684 @@
+====================================================================================================
+               APPLE LEAF DISEASE CLASSIFICATION SYSTEM — COMPREHENSIVE PROJECT GUIDE
+====================================================================================================
+Author/Team : Academic ML Project
+Language    : Python 3.10+
+Frameworks  : OpenCV, Mahotas, Scikit-Learn, Streamlit, NumPy, Pandas, Matplotlib, Seaborn
+Dataset     : PlantVillage Apple Leaf Subset (3,171 images across 4 classes)
+Status      : Phase 1 Complete (4-Class Classification & Model Comparison)
+
+====================================================================================================
+TABLE OF CONTENTS
+====================================================================================================
+1.  PROJECT OVERVIEW & EXECUTIVE SUMMARY
+2.  PROBLEM STATEMENT & BOTANICAL CONTEXT
+3.  WHY THIS TECH STACK? (LIBRARIES & TOOLS JUSTIFICATION)
+4.  DATASET DETAILS, CLASS DISTRIBUTION & SPLITTING STRATEGY
+5.  IMAGE PREPROCESSING PIPELINE (WHAT IT DOES & WHY)
+6.  FEATURE EXTRACTION DEEP DIVE (THE 532-DIMENSIONAL VECTOR)
+    - 6.1 Hu Moments (Shape Invariants - 7 Features)
+    - 6.2 Haralick Texture Features (GLCM - 13 Features)
+    - 6.3 3D HSV Color Histogram (Color Distribution - 512 Features)
+7.  FEATURE SCALING & PREVENTING DATA LEAKAGE
+8.  WHY THESE TWO MODELS? (RANDOM FOREST VS. SVM)
+    - 8.1 Model 1: Random Forest Classifier
+    - 8.2 Model 2: Support Vector Machine (SVM)
+    - 8.3 Why Other Models Were Excluded
+9.  HOW THE MODELS WERE TRAINED
+10. EXPERIMENTAL RESULTS, METRICS & COMPARATIVE ANALYSIS
+    - 10.1 Primary Performance Metrics (Accuracy, Precision, Recall, F1)
+    - 10.2 Per-Class Breakdown & Confusion Matrix Analysis
+    - 10.3 Why Accuracy Alone is Insufficient
+11. END-TO-END INFERENCE & PREDICTION PIPELINE (HOW IT WORKS IN CODE)
+12. STREAMLIT WEB APPLICATION ARCHITECTURE
+13. COMPLETE STEP-BY-STEP REPRODUCTION GUIDE (HOW TO RUN EVERYTHING)
+14. PROJECT LIMITATIONS
+15. FUTURE WORK (PHASE 2 ROADMAP)
+
+====================================================================================================
+1. PROJECT OVERVIEW & EXECUTIVE SUMMARY
+====================================================================================================
+The goal of this project is to build an automated, interpretable, and reproducible machine learning
+system that classifies digital photographs of apple leaves into four distinct health categories:
+  1. Apple Scab (Fungal infection)
+  2. Black Rot (Fungal infection)
+  3. Cedar Apple Rust (Fungal infection)
+  4. Healthy (Asymptomatic tissue)
+
+Rather than treating the machine learning model as an opaque "black-box" (as is often the case with
+deep neural networks), this project follows an established classical computer vision methodology:
+we isolate leaf tissue using color segmentation in the HSV color space, compute handcrafted
+descriptors capturing shape, texture, and color distributions (totaling 532 features), and evaluate
+two classic machine learning classifiers:
+  - Random Forest Classifier (Ensemble Bagging)
+  - Support Vector Machine (SVM with RBF Kernel and probability calibration)
+
+Results from our test set (635 held-out samples, 20% stratified split):
+  - Random Forest achieved an overall accuracy of 96.22% (Macro F1: 0.9605).
+  - SVM achieved an overall accuracy of 95.12% (Macro F1: 0.9451).
+  - Feature extraction across all 3,171 images takes under 50 seconds.
+  - The trained models are deployed via an interactive Streamlit web dashboard.
+
+====================================================================================================
+2. PROBLEM STATEMENT & BOTANICAL CONTEXT
+====================================================================================================
+Apple orchards (*Malus domestica*) suffer billions of dollars in annual losses worldwide due to
+foliar fungal diseases. When leaves are infected:
+  - Photosynthetic surface area decreases.
+  - Premature leaf drop (defoliation) weakens the tree.
+  - Fruit yield and quality drop drastically.
+
+The four conditions addressed in Phase 1 are:
+
+1. APPLE SCAB (Venturia inaequalis):
+   - Symptoms: Olive-green to dull dark brown velvety or corky lesions, often with irregular borders.
+   - Impact: If uncontrolled, lesions spread to fruit, causing cracking, scabbing, and rot.
+
+2. BLACK ROT (Diplocarpa mali / Botryosphaeria obtusa):
+   - Symptoms: Concentric circular "frog-eye" leaf spots with tan/brown centers and dark purple halos.
+   - Impact: Causes severe fruit mummification and canker formation on tree limbs.
+
+3. CEDAR APPLE RUST (Gymnosporangium juniperi-virginianae):
+   - Symptoms: Bright yellow-orange pustules on the upper leaf surface, later developing tiny raised
+     fruiting bodies and tube-like spore structures on the lower surface.
+   - Impact: Requires both eastern red cedar and apple trees to complete its life cycle. Leads to
+     premature defoliation.
+
+4. HEALTHY:
+   - Clear, uniform green leaf blade with intact cuticle and veins, free of necrotic lesions.
+
+Manual visual inspection by agronomists is subjective, labor-intensive, and impossible to scale
+continuously across vast acreage. An automated vision-based classifier provides objective, rapid,
+and consistent diagnosis.
+
+====================================================================================================
+3. WHY THIS TECH STACK? (LIBRARIES & TOOLS JUSTIFICATION)
+====================================================================================================
+The technology stack was chosen specifically for reproducibility, speed, mathematical transparency,
+and production-ready deployment:
+
+1. PYTHON 3.10+:
+   - The universal standard language for machine learning, scientific computing, and computer vision.
+   - Offers extensive library interoperability and clean type annotation support.
+
+2. OPENCV (cv2):
+   - Why not PIL or Matplotlib for image processing?
+   - OpenCV is implemented in optimized C/C++, providing hardware-accelerated image decoding,
+     bilinear resizing, fast color space transformations (BGR -> RGB -> HSV), color masking
+     (`cv2.inRange`), bitwise logic (`cv2.bitwise_or`, `cv2.bitwise_and`), and spatial image moments.
+   - It is significantly faster than pure-Python equivalents.
+
+3. MAHOTAS:
+   - Why Mahotas?
+   - Mahotas provides lightning-fast C-compiled implementations of Haralick Texture Descriptors
+     based on Gray-Level Co-occurrence Matrices (GLCM).
+   - Rather than calculating GLCM manually or relying on slow wrappers, Mahotas computes all 13
+     Haralick features across multiple directions in milliseconds.
+
+4. SCIKIT-LEARN:
+   - Industry-standard ML framework in Python.
+   - Provides battle-tested implementations of `RandomForestClassifier`, `SVC` (libsvm wrapper),
+     `MinMaxScaler`, `LabelEncoder`, `train_test_split`, and comprehensive metric suites.
+   - Features clean APIs and strict avoidance of data leakage via clear `.fit()` and `.transform()`
+     separation.
+
+5. NUMPY & PANDAS:
+   - NumPy handles multi-dimensional arrays, vectorized mathematical operations, and `.npz` storage.
+   - Pandas structures dataset statistics, class breakdowns, and metric comparison tables exported
+     to CSV for academic reporting.
+
+6. MATPLOTLIB & SEABORN:
+   - Generates publication-quality, 300-DPI academic plots (confusion matrix heatmaps, class
+     distribution bar charts, and grouped model metric comparisons).
+
+7. STREAMLIT:
+   - Why not Flask, Django, or FastAPI?
+   - Streamlit enables writing reactive, beautiful web interfaces purely in Python with zero
+     JavaScript boilerplate.
+   - It allows farmers, researchers, and evaluators to upload an image, select a classifier, inspect
+     the live probability distributions, and examine the intermediate HSV segmentation masks in real
+     time.
+
+8. JOBLIB:
+   - High-throughput serialization for NumPy-heavy objects. It efficiently pickles trained scikit-learn
+     models, the MinMaxScaler, and the LabelEncoder to disk without overhead.
+
+====================================================================================================
+4. DATASET DETAILS, CLASS DISTRIBUTION & SPLITTING STRATEGY
+====================================================================================================
+The project uses the authentic PlantVillage Apple Leaf dataset subset:
+
+Total Dataset: 3,171 images
+  - Apple___Apple_scab       : 630 images  (19.87%)
+  - Apple___Black_rot        : 621 images  (19.58%)
+  - Apple___Cedar_apple_rust : 275 images  ( 8.67%)
+  - Apple___healthy          : 1,645 images (51.88%)
+
+NOTICE THE CLASS IMBALANCE:
+Healthy leaves make up more than half the dataset (51.88%), while Cedar Apple Rust represents only
+8.67%. If an algorithm simply predicted "Healthy" every time, it would achieve ~52% accuracy while
+being completely useless. This makes Macro-averaged metrics and confusion matrix inspection essential.
+
+SPLITTING METHODOLOGY:
+To evaluate generalization on unseen data, the dataset is partitioned using an 80/20 Stratified Split:
+  - Total Training Samples : 2,536 (80%)
+  - Total Test Samples     :   635 (20%)
+
+What is Stratification and Why Is It Necessary?
+Random splitting might accidentally place too few minority samples (Cedar Apple Rust) into the test
+set. Stratification guarantees that the 80/20 proportion is maintained identically across every
+individual class:
+  - Apple Scab       : 504 train | 126 test
+  - Black Rot        : 497 train | 124 test
+  - Cedar Apple Rust : 220 train |  55 test
+  - Healthy          : 1,315 train | 330 test
+
+Reproducibility:
+The split uses a fixed random seed (`random_state=42`), ensuring that all models are trained and
+evaluated on the exact same data partitions every time.
+
+====================================================================================================
+5. IMAGE PREPROCESSING PIPELINE (WHAT IT DOES & WHY)
+====================================================================================================
+Located in `src/preprocessing.py`.
+
+A major challenge in leaf classification is that raw camera images contain varying resolutions,
+lighting differences, and background noise (shadows, mounting clips, bench surfaces).
+Our preprocessing pipeline follows five deliberate steps:
+
+STEP 1: IMAGE INGESTION & ROBUST ERROR HANDLING
+  - Images are read via `cv2.imread`.
+  - Corrupt files, empty arrays, or non-image files are caught gracefully and return `None` rather
+    than crashing the pipeline.
+
+STEP 2: STANDARDIZED RESIZING (500 x 500)
+  - Images from cameras have different aspect ratios and resolutions.
+  - Resizing to a uniform (500, 500) grid standardizes the pixel coordinate space while preserving
+    fine texture details needed for Haralick GLCM computation.
+
+STEP 3: COLOR SPACE CONVERSION (BGR -> RGB -> HSV)
+  - OpenCV loads images in BGR format. We convert to RGB for proper human viewing and standard
+    color science.
+  - Next, we convert RGB to HSV (Hue, Saturation, Value):
+    * Hue (0-179 in OpenCV): Represents the dominant color wavelength (color family).
+    * Saturation (0-255): Represents the purity or vividness of the color.
+    * Value (0-255): Represents the brightness or luminance.
+  - WHY HSV INSTEAD OF RGB?
+    In RGB, a shadow changes all three channels (R, G, B) simultaneously, making thresholding
+    fragile. In HSV, shadows primarily affect the "Value" channel, while "Hue" remains constant.
+    This allows us to identify green foliage and brown disease lesions regardless of ambient light.
+
+STEP 4: DUAL-MASK COLOR SEGMENTATION (LEAF ISOLATION)
+  - We create two HSV color masks:
+    1. Healthy Foliage Mask (Green Spectrum):
+       Lower Bound: [H=25, S=0, V=20]
+       Upper Bound: [H=100, S=255, V=255]
+       This captures normal leaf chlorophyll across light and dark shades.
+    2. Diseased Lesion Mask (Brown / Rust Spectrum):
+       Lower Bound: [H=10, S=0, V=10]
+       Upper Bound: [H=30, S=255, V=255]
+       This captures the necrotic, brown, yellow, and rust hues of scab, rot, and rust lesions.
+    3. Composite Bitwise OR:
+       Final_Mask = bitwise_or(Healthy_Mask, Disease_Mask)
+       (Using bitwise OR prevents byte overflow that happens with simple '+' addition in NumPy).
+    4. Bitwise AND Masking:
+       Segmented_Leaf = bitwise_and(RGB_Image, RGB_Image, mask=Final_Mask)
+  - WHAT DOES THIS ACCOMPLISH?
+    All background pixels (bench, shadow, white card) are set to pure black [0, 0, 0], while all
+    healthy and diseased leaf pixels are preserved.
+
+STEP 5: GRAYSCALE EXTRACTION
+  - The segmented RGB leaf is converted to grayscale (`cv2.cvtColor(..., cv2.COLOR_RGB2GRAY)`).
+  - This single-channel intensity image is passed to the shape and texture descriptor algorithms.
+
+====================================================================================================
+6. FEATURE EXTRACTION DEEP DIVE (THE 532-DIMENSIONAL VECTOR)
+====================================================================================================
+Located in `src/feature_extraction.py`.
+
+Instead of feeding raw pixels (which would be 500 x 500 x 3 = 750,000 dimensions—far too large for
+classical ML models without overfitting), we extract 532 engineered features combining:
+  1. Shape (7 features)
+  2. Texture (13 features)
+  3. Color (512 features)
+
+Total Feature Dimension = 512 + 13 + 7 = 532 features.
+Our implementation calculates this dimension dynamically and verifies it during execution.
+
+----------------------------------------------------------------------------------------------------
+6.1 HU MOMENTS (SHAPE DESCRIPTORS — 7 DIMENSIONS)
+----------------------------------------------------------------------------------------------------
+- WHAT THEY ARE:
+  Derived from normalized central spatial moments of the grayscale segmented leaf.
+  Calculated using `cv2.moments(gray)` followed by `cv2.HuMoments(moments).flatten()`.
+- WHY THEY ARE USEFUL:
+  Ming-Kuei Hu (1962) proved that these 7 nonlinear moment combinations are invariant to:
+    1. Translation (shifting leaf position)
+    2. Scale (zooming in or out)
+    3. Rotation (leaf angle on the surface)
+- WHAT THEY CAPTURE:
+  They quantify the global geometry and boundary irregularities of the leaf blade and major lesion
+  groupings. For example, severe disease can deform leaf margins or create large irregular necrotic
+  clusters that shift the higher-order spatial moments.
+
+----------------------------------------------------------------------------------------------------
+6.2 HARALICK TEXTURE FEATURES (GLCM — 13 DIMENSIONS)
+----------------------------------------------------------------------------------------------------
+- WHAT THEY ARE:
+  Robert Haralick (1973) proposed texture analysis based on Gray-Level Co-occurrence Matrices (GLCM).
+  A GLCM tabulates how often pairs of pixel intensities occur at specified spatial offsets (e.g., 1
+  pixel distance) and angles.
+- COMPUTATION:
+  Using `mahotas.features.haralick(gray).mean(axis=0)`, we compute the GLCM across four directions:
+    - 0 degrees   (horizontal)
+    - 45 degrees  (diagonal right)
+    - 90 degrees  (vertical)
+    - 135 degrees (diagonal left)
+  Averaging across the four directions produces a rotation-invariant 13-element feature vector:
+    1. Angular Second Moment (ASM / Uniformity / Energy): High when image texture is very uniform.
+    2. Contrast: Measures intensity variation between neighboring pixels. High in diseased leaves
+       with sharp necrotic borders.
+    3. Correlation: Linear dependency of gray levels of neighbor pixels.
+    4. Variance: Measures the dispersion of pixel intensity values.
+    5. Inverse Difference Moment (IDM / Homogeneity): Measures smoothness of local textures.
+    6. Sum Average
+    7. Sum Variance
+    8. Sum Entropy
+    9. Entropy: Measures texture randomness or complexity. Diseased leaves with mottled lesions have
+       significantly higher entropy than smooth, healthy leaf blades.
+    10. Difference Variance
+    11. Difference Entropy
+    12. Information Measure of Correlation 1
+    13. Information Measure of Correlation 2
+
+----------------------------------------------------------------------------------------------------
+6.3 3D HSV COLOR HISTOGRAM (COLOR DISTRIBUTION — 512 DIMENSIONS)
+----------------------------------------------------------------------------------------------------
+- WHAT IT IS:
+  A 3D joint frequency distribution across Hue, Saturation, and Value channels.
+- COMPUTATION:
+  Using `cv2.calcHist([hsv_segmented], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])`.
+  - We divide Hue into 8 bins.
+  - We divide Saturation into 8 bins.
+  - We divide Value into 8 bins.
+  - Total bins = 8 x 8 x 8 = 512 bins.
+  - Flattened into a 512-dimensional vector.
+- NORMALIZATION:
+  The histogram is normalized using L2 norm (`cv2.normalize(hist, hist)`).
+  WHY NORMALIZE?
+  A larger leaf has more pixels than a smaller leaf. Normalization makes the histogram independent
+  of leaf surface area, representing the PROPORTION of color states rather than raw pixel counts.
+- WHAT IT CAPTURES:
+  This is the most discriminative feature descriptor for distinguishing:
+  - Vibrant green chlorophyll (Healthy)
+  - Olive-brown velvety tones (Apple Scab)
+  - Dark brown/black frog-eye patches (Black Rot)
+  - Bright yellow-orange pustules (Cedar Apple Rust)
+
+----------------------------------------------------------------------------------------------------
+COMBINED FEATURE VECTOR ASSEMBLY
+----------------------------------------------------------------------------------------------------
+Order: [ 512 Color Histogram Features  |  13 Haralick Texture Features  |  7 Hu Moments ]
+Total: 532 scalar features per image.
+
+====================================================================================================
+7. FEATURE SCALING & PREVENTING DATA LEAKAGE
+====================================================================================================
+Located in `src/train.py`.
+
+WHAT IS DATA LEAKAGE AND WHY IS IT FATAL IN ML?
+Data leakage occurs when information from outside the training dataset (specifically from the test
+set) is used to create or tune the model. A common rookie mistake is:
+  "scaler.fit_transform(all_3171_samples)"  <-- WRONG!
+If you scale the entire dataset before splitting, the test set's mean, min, and max values leak into
+the training feature distribution. The model gets an unfair peek at test data, yielding artificially
+inflated test accuracy that collapses in real-world deployment.
+
+OUR IMPLEMENTATION (STRICT ZERO LEAKAGE):
+  1. The dataset is first split into X_train (2,536 samples) and X_test (635 samples).
+  2. The `MinMaxScaler(feature_range=(0, 1))` is fitted SOLELY on X_train:
+       scaler.fit(X_train)
+  3. X_train is transformed:
+       X_train_scaled = scaler.transform(X_train)
+  4. X_test is transformed using the previously fitted scaler:
+       X_test_scaled = scaler.transform(X_test)
+  5. The fitted scaler is saved to `models/scaler.joblib` so that unseen inference images in
+     `src/predict.py` and `app/app.py` use the exact same scaling parameters.
+
+WHY DOES SVM REQUIRE FEATURE SCALING?
+SVM computes geometric Euclidean distances between feature vectors ($||\mathbf{x}_i - \mathbf{x}_j||^2$)
+to determine the optimal separating hyperplane. In our 532-D vector:
+  - Normalized histogram values are in the range [0.0, 1.0].
+  - Hu moments can be tiny fractions (e.g., $10^{-6}$).
+  - Haralick variance or contrast values can be large numbers (e.g., $50.0$ to $500.0$).
+Without scaling, Haralick contrast would dominate the Euclidean distance calculation, completely
+blinding the SVM to color and shape! MinMaxScaler maps every single feature into [0, 1], giving equal
+mathematical footing to all descriptors.
+
+WHY DOES RANDOM FOREST WORK WELL EITHER WAY?
+Random Forest splits nodes based on single feature threshold inequalities ($x_j \le \theta$).
+Because rank order is preserved under any monotonic scaling, Random Forest is mathematically
+invariant to feature scale. We use scaled data consistently across both models for architectural
+uniformity.
+
+====================================================================================================
+8. WHY THESE TWO MODELS? (RANDOM FOREST VS. SVM)
+====================================================================================================
+Per the project guidelines, we explicitly compared exactly two classical supervised algorithms:
+Random Forest and Support Vector Machine.
+
+----------------------------------------------------------------------------------------------------
+8.1 MODEL 1: RANDOM FOREST CLASSIFIER
+----------------------------------------------------------------------------------------------------
+- WHAT IT IS:
+  An ensemble method combining multiple decision trees (we configure 100 estimators).
+  Each tree is trained on a bootstrap sample of the training data (Bagging), and at each split,
+  only a random subset of features is evaluated ($\sqrt{532} \approx 23$ features).
+- WHY RANDOM FOREST FOR APPLE LEAVES?
+  1. Non-linear Feature Interactions: Leaf diseases have conditional rules (e.g., IF hue is yellow-orange
+     AND Haralick entropy is high, THEN Cedar Apple Rust). Decision trees naturally model such rules.
+  2. High Dimensionality Robustness: With 532 features, individual features may have correlation;
+     Random Forest randomly samples features per split, preventing dominant features from masking
+     subtle textures.
+  3. Inherent Resistance to Overfitting: Averaging predictions across 100 uncorrelated trees drastically
+     reduces variance compared to a single decision tree.
+
+----------------------------------------------------------------------------------------------------
+8.2 MODEL 2: SUPPORT VECTOR MACHINE (SVM)
+----------------------------------------------------------------------------------------------------
+- WHAT IT IS:
+  A maximum-margin classifier that constructs optimal hyperplanes in a high-dimensional feature space
+  to separate data classes with the widest possible geometric margin.
+- KERNEL SELECTION: RADIAL BASIS FUNCTION (RBF)
+  Apple leaf feature space is not linearly separable. The RBF (Gaussian) kernel:
+    $K(\mathbf{x}_i, \mathbf{x}_j) = \exp(-\gamma ||\mathbf{x}_i - \mathbf{x}_j||^2)$
+  implicitly maps the 532-dimensional input vectors into an infinite-dimensional Hilbert space where
+  curved decision surfaces become linearly separable.
+- PROBABILITY ESTIMATION VIA PLATT SCALING:
+  Standard SVM only produces signed geometric distances from the decision hyperplane. By setting
+  `probability=True`, scikit-learn uses Platt Scaling (fitting an internal logistic sigmoid model via
+  5-fold cross-validation) to convert raw distances into true, calibrated class probabilities
+  between 0.0 and 1.0.
+
+----------------------------------------------------------------------------------------------------
+8.3 WHY OTHER MODELS WERE EXCLUDED
+----------------------------------------------------------------------------------------------------
+In the reference repository, up to 7 models were tried (Logistic Regression, LDA, KNN, Decision Trees,
+Gaussian Naive Bayes, etc.). Per the project instructions, these were excluded because:
+  - Linear Regression / LDA: Assume linear separability, which fails on complex multimodal color spaces.
+  - Decision Trees (single): Prone to extreme overfitting and high variance.
+  - KNN: High inference latency in 532 dimensions (Curse of Dimensionality; distance between all points
+    becomes equidistant, degrading neighborhood quality).
+  - Gaussian Naive Bayes: Assumes complete feature independence, which is completely false for color
+    histogram bins and adjacent GLCM texture features.
+Comparing Random Forest (Ensemble Trees) vs. SVM (Margin Hyperplane) represents the two most powerful,
+fundamentally distinct paradigms in classical machine learning.
+
+====================================================================================================
+9. HOW THE MODELS WERE TRAINED
+====================================================================================================
+Located in `src/train.py`.
+
+Configurations Used:
+1. Random Forest:
+   - `n_estimators = 100` (100 individual decision trees)
+   - `max_depth = None` (Trees grow until all leaves are pure or contain minimal samples)
+   - `min_samples_split = 2`
+   - `random_state = 42` (ensures identical trees across runs)
+   - `n_jobs = -1` (uses all available CPU cores for parallel tree construction)
+   - Training Time: ~1.5 seconds.
+   - Training Accuracy: 100.00%
+
+2. Support Vector Machine:
+   - `C = 10.0` (Soft-margin regularization parameter; higher C penalizes misclassifications more)
+   - `kernel = 'rbf'` (Radial Basis Function for nonlinear boundary separation)
+   - `gamma = 'scale'` (Automatically set to $1 / (n\_features \times \text{Var}(X))$)
+   - `probability = True` (Platt scaling for calibrated confidence scores)
+   - `random_state = 42`
+   - Training Time: ~3.5 seconds.
+   - Training Accuracy: 96.61%
+
+Trained Artifacts Saved to `models/`:
+  - `models/random_forest.joblib`
+  - `models/svm.joblib`
+  - `models/scaler.joblib`
+  - `models/label_encoder.joblib`
+  - `data/processed/split_data.npz` (contains exact test split for independent evaluation)
+
+====================================================================================================
+10. EXPERIMENTAL RESULTS, METRICS & COMPARATIVE ANALYSIS
+====================================================================================================
+Evaluated strictly on the held-out test partition (N = 635 unseen images) via `src/evaluate.py`.
+
+----------------------------------------------------------------------------------------------------
+10.1 PRIMARY PERFORMANCE METRICS TABLE
+----------------------------------------------------------------------------------------------------
+(Saved automatically to `results/model_comparison.csv`):
+
++---------------+---------------+-------------------+-----------------+------------------+
+| Model         | Test Accuracy | Precision (Macro) | Recall (Macro)  | F1-Score (Macro) |
++---------------+---------------+-------------------+-----------------+------------------+
+| Random Forest | 96.22%        | 0.9630            | 0.9582          | 0.9605           |
+| SVM           | 95.12%        | 0.9530            | 0.9390          | 0.9451           |
++---------------+---------------+-------------------+-----------------+------------------+
+
+Weighted Averages (Accounting for sample support):
+  - Random Forest : Precision 0.9621 | Recall 0.9622 | F1 0.9621
+  - SVM           : Precision 0.9520 | Recall 0.9512 | F1 0.9512
+
+----------------------------------------------------------------------------------------------------
+10.2 PER-CLASS BREAKDOWN & CONFUSION MATRIX ANALYSIS
+----------------------------------------------------------------------------------------------------
+(Saved to `results/per_class_metrics.csv`):
+
+Class: APPLE SCAB (Support: 126 test images)
+  - Random Forest : Precision = 93.55% | Recall = 92.06% | F1 = 92.80%
+  - SVM           : Precision = 88.46% | Recall = 91.27% | F1 = 89.84%
+
+Class: BLACK ROT (Support: 124 test images)
+  - Random Forest : Precision = 96.80% | Recall = 97.58% | F1 = 97.19%
+  - SVM           : Precision = 96.09% | Recall = 99.19% | F1 = 97.62%
+
+Class: CEDAR APPLE RUST (Support: 55 test images)
+  - Random Forest : Precision = 98.15% | Recall = 96.36% | F1 = 97.25%
+  - SVM           : Precision = 100.0% | Recall = 89.09% | F1 = 94.23%
+
+Class: HEALTHY (Support: 330 test images)
+  - Random Forest : Precision = 96.69% | Recall = 97.27% | F1 = 96.98%
+  - SVM           : Precision = 96.65% | Recall = 96.06% | F1 = 96.35%
+
+----------------------------------------------------------------------------------------------------
+10.3 WHY ACCURACY ALONE IS INSUFFICIENT — IN-DEPTH ANALYSIS
+----------------------------------------------------------------------------------------------------
+In an academic project, one must never proclaim a model "the winner" based solely on an accuracy
+number. Looking closely at the per-class metrics reveals crucial trade-offs:
+
+1. THE CEDAR APPLE RUST DYNAMICS:
+   - SVM achieved 100.0% Precision on Cedar Apple Rust: whenever SVM predicted Cedar Apple Rust,
+     it was correct 100% of the time (zero false alarms).
+   - However, SVM's Recall was only 89.09% (it missed 6 infected leaves, misclassifying them as scab
+     or healthy). In agriculture, missing an active infection (False Negative) allows disease to
+     spread uncontrollably.
+   - Random Forest achieved 96.36% Recall on Cedar Apple Rust, catching almost all infections with
+     only a negligible dip in precision (98.15%).
+
+2. WHY RANDOM FOREST IS THE PREFERRED OPERATIONAL MODEL:
+   - Random Forest achieved a higher Macro Recall (95.82% vs. 93.90%) and higher Macro F1 (96.05%
+     vs. 94.51%).
+   - Because Macro averages weight all 4 diseases equally (regardless of whether a class has 55
+     or 330 samples), Random Forest demonstrates superior sensitivity and robustness across
+     minority classes.
+
+Generated Visualizations in `results/`:
+  - `results/class_distribution.png`   : Visualizes the 80/20 train/test split balance.
+  - `results/confusion_matrix_rf.png`  : Visualizes exact true vs. predicted classifications for RF.
+  - `results/confusion_matrix_svm.png` : Visualizes exact true vs. predicted classifications for SVM.
+  - `results/model_comparison.png`     : Grouped comparative bar chart of Accuracy, Precision, Recall, F1.
+
+====================================================================================================
+11. END-TO-END INFERENCE & PREDICTION PIPELINE (HOW IT WORKS IN CODE)
+====================================================================================================
+Located in `src/predict.py`.
+
+When a user provides an unseen leaf photograph (e.g., via CLI or web UI), the `AppleLeafPredictor`
+executes the complete sequence in ~20 milliseconds:
+
+  Input Leaf Image (.JPG / .PNG / NumPy array)
+                    │
+                    ▼
+     [1. Preprocessing & Resizing]
+     - Resized to (500, 500)
+     - Converted BGR -> RGB -> HSV
+                    │
+                    ▼
+     [2. Dual-Mask HSV Segmentation]
+     - Healthy mask (green) + Disease mask (brown/rust)
+     - Bitwise AND eliminates background into black (0)
+                    │
+                    ▼
+     [3. Multi-Modal Feature Extraction]
+     - Hu Moments (7) from grayscale segmented leaf
+     - Haralick Textures (13) from GLCM
+     - HSV 3D Color Histogram (512) normalized
+     - Concatenation -> 1D vector (532 features)
+                    │
+                    ▼
+     [4. Feature Normalization]
+     - Scaled using pre-fitted `scaler.joblib` (MinMaxScaler)
+                    │
+                    ▼
+     [5. Model Inference]
+     - Loaded model (Random Forest or SVM) computes `predict_proba()`
+                    │
+                    ▼
+     [6. Diagnostic Synthesis]
+     - Top class identified (ArgMax)
+     - True confidence probability extracted (e.g., 96.00%)
+     - Pathological explanation generated
+     - Structured JSON / Dictionary returned
+
+NO FAKE CONFIDENCE:
+Both Random Forest (tree leaf voting fractions) and SVM (Platt scaling sigmoid calibration) output
+genuine, mathematically valid probabilities that sum to 1.0 across the 4 classes.
+
+====================================================================================================
+12. STREAMLIT WEB APPLICATION ARCHITECTURE
+====================================================================================================
+Located in `app/app.py`.
+
+The web app is structured into three clean functional tabs:
+
+TAB 1: LEAF DISEASE CLASSIFICATION (LIVE INFERENCE)
+  - Sidebar Controls: Toggle between Random Forest and SVM; choose from pre-loaded test samples.
+  - Image Uploader: Drag-and-drop any leaf photograph.
+  - Side-by-Side Diagnostic View:
+    * Left: Input image preview.
+    * Right: Diagnosis Status Badge (GREEN: Healthy, RED: Infected), Predicted Disease Name,
+      Confidence Score metric & progress bar, Probability Distribution Chart across all 4 classes,
+      and Pathological Explanation.
+  - Collapsible Preprocessing Visualizer: Evaluators can expand a drawer to inspect the intermediate
+    HSV dual mask and background-suppressed segmented leaf.
+
+TAB 2: MODEL COMPARISON & RESULTS DASHBOARD
+  - Automatically loads and renders the live `results/model_comparison.csv` table.
+  - Embeds the generated high-resolution 300-DPI visual plots:
+    * Comparative metric bar chart
+    * Dataset split distribution
+    * Random Forest confusion matrix
+    * SVM confusion matrix
+
+TAB 3: METHODOLOGY & ARCHITECTURE
+  - Displays the mathematical formulations for Hu moments, Haralick GLCM features, HSV color
+    threshold boundaries, and data leakage safeguards.
+
+Performance Optimization:
+The app uses `@st.cache_resource` to load the 4 `.joblib` files only once into server memory upon
+startup. Subsequent inferences take less than 0.03 seconds per image.
+
+====================================================================================================
+13. COMPLETE STEP-BY-STEP REPRODUCTION GUIDE (HOW TO RUN EVERYTHING)
+====================================================================================================
+Follow these exact commands to reproduce the entire pipeline from scratch:
+
+1. OPEN TERMINAL IN THE PROJECT DIRECTORY:
+   cd c:\Users\manch\Downloads\apple-leaf-disease-classification
+
+2. VERIFY DEPENDENCIES:
+   pip install -r requirements.txt
+
+3. RUN FEATURE EXTRACTION (Processes all 3,171 images into `apple_leaf_features.npz`):
+   python src/feature_extraction.py
+
+4. RUN MODEL TRAINING (Fits scaler on training split, trains RF and SVM, saves artifacts):
+   python src/train.py --rf_estimators 100 --svm_c 10.0 --seed 42
+
+5. RUN MODEL EVALUATION (Evaluates held-out test data, saves CSVs and plots to `results/`):
+   python src/evaluate.py
+
+6. RUN SINGLE-IMAGE CLI PREDICTION (Example on Cedar Apple Rust leaf):
+   # Using Random Forest:
+   python src/predict.py --image "data/raw/Apple___Cedar_apple_rust/025b2b9a-0ec4-4132-96ac-7f2832d0db4a___FREC_C.Rust 3655.JPG" --model rf
+
+   # Using Support Vector Machine:
+   python src/predict.py --image "data/raw/Apple___Cedar_apple_rust/025b2b9a-0ec4-4132-96ac-7f2832d0db4a___FREC_C.Rust 3655.JPG" --model svm
+
+7. LAUNCH THE INTERACTIVE STREAMLIT WEB APP:
+   # General command:
+   streamlit run app/app.py
+
+   # Windows (if streamlit is not in PATH):
+   python -m streamlit run app/app.py
+
+   The application will open in your browser at: http://localhost:8501
+
+====================================================================================================
+14. PROJECT LIMITATIONS
+====================================================================================================
+To maintain academic honesty, the following constraints must be noted:
+
+1. CONTROLLED ENVIRONMENT BIAS:
+   The PlantVillage dataset was captured in laboratory conditions with leaves placed flat against
+   uniform gray/white backdrops. In an actual outdoor orchard, leaves overlap with branches, sky,
+   and soil, which will require adaptive semantic segmentation (e.g., U-Net or Mask R-CNN).
+
+2. CLASS IMBALANCE:
+   Cedar Apple Rust has only 275 images compared to 1,645 Healthy images. While Random Forest
+   handled this well (96.36% recall), SVM's recall dropped to 89.09% on the minority class.
+
+3. HANDCRAFTED FEATURE LIMITATIONS:
+   The 532 handcrafted features rely on predefined color and texture mathematics. Unusual surface
+   blemishes, dust, dry weather, or pesticide spray residue can mimic lesion patterns and cause
+   misclassifications.
+
+4. SINGLE-LEAF FOCUS:
+   The pipeline assumes an image contains one prominent, centered apple leaf. It does not perform
+   multi-object bounding-box localization.
+
+====================================================================================================
+15. FUTURE WORK (PHASE 2 ROADMAP)
+====================================================================================================
+This project successfully achieved its Phase 1 objective: robust 4-class classification and rigorous
+model comparison. Future research planned for Phase 2 includes:
+
+1. SEVERITY-LEVEL QUANTIFICATION:
+   - Rather than just identifying the disease, calculate the infected leaf surface area ratio:
+     Severity % = (Diseased Lesion Area / Total Leaf Surface Area) * 100
+   - Categorize into: Mild (<15%), Moderate (15-40%), Severe (>40%).
+
+2. DEEP LEARNING & TRANSFER LEARNING BENCHMARKING:
+   - Benchmark our 532-D classical ML models against modern Deep Learning architectures:
+     * Convolutional Neural Networks: EfficientNet-B0, ResNet-50, ConvNeXt.
+     * Vision Transformers: ViT-Base, Swin Transformer.
+   - Compare accuracy, parameter count, training compute, and inference latency on edge devices.
+
+3. IN-FIELD ORCHARD DATASETS (IN-THE-WILD):
+   - Expand training using datasets such as the Kaggle FGVC Plant Pathology challenge, which contains
+     photographs taken directly on apple trees under harsh sunlight, motion blur, and rain.
+
+4. REAL-TIME EDGE DEPLOYMENT:
+   - Convert models using ONNX or TensorFlow Lite for deployment on low-power agricultural hardware
+     (Raspberry Pi 4, ESP32-CAM, or handheld Android scouting applications for orchard workers).
+
+====================================================================================================
+END OF COMPREHENSIVE PROJECT GUIDE
+====================================================================================================

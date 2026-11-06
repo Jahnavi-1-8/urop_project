@@ -1,0 +1,45 @@
+APPLE LEAF DISEASE CLASSIFICATION — EVALUATION REPORT
+=====================================================
+
+1. MODEL COMPARISON SUMMARY
+        model  accuracy  precision   recall  f1_score  precision_weighted  recall_weighted  f1_score_weighted
+Random Forest  0.975117   0.980597 0.969854  0.975100            0.975161         0.975117           0.975056
+          SVM  0.950233   0.948595 0.956511  0.951214            0.954153         0.950233           0.950996
+
+2. RANDOM FOREST CLASSIFICATION REPORT
+                  precision    recall  f1-score   support
+
+      Apple Scab       0.96      0.94      0.95       128
+       Black Rot       0.99      0.99      0.99       126
+Cedar Apple Rust       1.00      0.96      0.98        57
+         Healthy       0.97      0.98      0.98       332
+
+        accuracy                           0.98       643
+       macro avg       0.98      0.97      0.98       643
+    weighted avg       0.98      0.98      0.98       643
+
+
+3. SUPPORT VECTOR MACHINE CLASSIFICATION REPORT
+                  precision    recall  f1-score   support
+
+      Apple Scab       0.85      0.97      0.91       128
+       Black Rot       0.96      0.98      0.97       126
+Cedar Apple Rust       1.00      0.95      0.97        57
+         Healthy       0.98      0.93      0.96       332
+
+        accuracy                           0.95       643
+       macro avg       0.95      0.96      0.95       643
+    weighted avg       0.95      0.95      0.95       643
+
+
+4. RANDOM FOREST CONFUSION MATRIX
+[[120   1   0   7]
+ [  0 125   0   1]
+ [  0   0  55   2]
+ [  5   0   0 327]]
+
+5. SUPPORT VECTOR MACHINE CONFUSION MATRIX
+[[124   1   0   3]
+ [  2 123   0   1]
+ [  1   1  54   1]
+ [ 19   3   0 310]]

@@ -1,0 +1,17 @@
+{
+    "num_samples": 3211,
+    "num_features": 532,
+    "feature_vector_shape": [
+        3211,
+        532
+    ],
+    "class_distribution": {
+        "Apple___Apple_scab": 638,
+        "Apple___Black_rot": 629,
+        "Apple___Cedar_apple_rust": 283,
+        "Apple___healthy": 1661
+    },
+    "rf_accuracy": 0.9751166407465007,
+    "svm_accuracy": 0.9502332814930016,
+    "saved_to": "data/processed/apple_leaf_features.npz"
+}

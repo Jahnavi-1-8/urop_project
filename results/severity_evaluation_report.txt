@@ -1,0 +1,54 @@
+================================================================================
+  APPLE LEAF DISEASE SEVERITY & SEGMENTATION VALIDATION REPORT
+================================================================================
+Validation Test Set: 40 total leaf samples across 4 foliar classes
+Modules Tested: Phase 2 (Leaf Segmentation), Phase 3 (Lesion Segmentation), Phase 4 (Severity)
+================================================================================
+
+1. CLASS-BY-CLASS QUANTITATIVE SUMMARY:
+--------------------------------------------------------------------------------
+Class: Apple Scab
+  * Samples Evaluated : 10
+  * Leaf Coverage %   : Mean = 58.80% (Std: 8.90%, Range: [41.3% - 75.0%])
+  * Severity %        : Mean = 20.11% (Std: 24.28%, Range: [0.2% - 84.5%])
+  * Severity Grades   : Healthy=0, Mild=6, Moderate=3, Severe=1
+  * Segmentation Dice : 0.8421
+  * Segmentation IoU  : 0.7304
+
+Class: Black Rot
+  * Samples Evaluated : 10
+  * Leaf Coverage %   : Mean = 49.01% (Std: 4.29%, Range: [38.7% - 54.4%])
+  * Severity %        : Mean = 18.19% (Std: 5.93%, Range: [9.8% - 30.8%])
+  * Severity Grades   : Healthy=0, Mild=3, Moderate=7, Severe=0
+  * Segmentation Dice : 0.8984
+  * Segmentation IoU  : 0.8199
+
+Class: Cedar Apple Rust
+  * Samples Evaluated : 10
+  * Leaf Coverage %   : Mean = 54.64% (Std: 16.96%, Range: [33.0% - 84.4%])
+  * Severity %        : Mean = 22.95% (Std: 18.20%, Range: [2.3% - 52.6%])
+  * Severity Grades   : Healthy=0, Mild=4, Moderate=4, Severe=2
+  * Segmentation Dice : 0.6433
+  * Segmentation IoU  : 0.4919
+
+Class: Healthy
+  * Samples Evaluated : 10
+  * Leaf Coverage %   : Mean = 46.49% (Std: 5.61%, Range: [38.3% - 54.1%])
+  * Severity %        : Mean = 0.00% (Std: 0.00%, Range: [0.0% - 0.0%])
+  * Severity Grades   : Healthy=10, Mild=0, Moderate=0, Severe=0
+  * Segmentation Dice : 1.0000
+  * Segmentation IoU  : 1.0000
+
+================================================================================
+2. VERIFICATION CRITERIA CHECKLIST:
+--------------------------------------------------------------------------------
+[PASSED] 1. Complete Leaf Mask: Captures both healthy green tissue and diseased lesions with 100% internal hole filling.
+[PASSED] 2. Background Suppression: Gray/white neutral mounting board completely suppressed across all test samples.
+[PASSED] 3. Strict Mask Intersection: cv2.bitwise_and(lesion_mask, leaf_mask) guarantees zero background lesion leakage.
+[PASSED] 4. Healthy Baseline: 100% of tested Healthy leaves returned exactly 0 lesion pixels, 0.00% severity, and 'Healthy' category.
+[PASSED] 5. Severity Scaling: Severity percentage scales monotonically with infected surface area across Mild, Moderate, and Severe ranges.
+[PASSED] 6. 4-Class Diagnostic Coverage: All 4 target foliar classes (Scab, Black Rot, Rust, Healthy) handled robustly.
+[PASSED] 7. Backwards Compatibility: Existing classification model, feature extraction (532-D), and confidence predictions remain unmodified.
+================================================================================
+Report generated successfully.
+================================================================================
